@@ -1,23 +1,39 @@
-# OS / IDE
+# =====================
+# Global
+# =====================
 .DS_Store
-Thumbs.db
-.idea
-.vscode
-*.iml
-*.ipr
-*.iws
-
-# Maven
-target/
-.mvn/wrapper/maven-wrapper.jar
-
-# Node
 node_modules/
+target/
+dist/
+build/
 
-# Environment variables
+# =====================
+# IDEs
+# =====================
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# =====================
+# Java / Spring
+# =====================
+**/target/
+**/*.log
+
+# =====================
+# Env & Secrets
+# =====================
 .env
-.env.*
+*.env
+application.yml
+application-backup.yml
+
+# Allow samples
+!application-sample.yml
 !.env.example
 
-# Logs
-*.log
+# Uploaded files
+uploads/

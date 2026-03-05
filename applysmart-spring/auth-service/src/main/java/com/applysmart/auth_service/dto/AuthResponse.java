@@ -8,7 +8,7 @@ import lombok.*;
 @AllArgsConstructor
 public class AuthResponse {
     private String token;
-    private String refreshToken;  // ✅ ADDED
+    private String refreshToken;  //  ADDED
     @Builder.Default
     private String tokenType = "Bearer";
     private Long userId;
