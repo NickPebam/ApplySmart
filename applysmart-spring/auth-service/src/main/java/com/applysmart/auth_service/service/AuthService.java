@@ -20,9 +20,10 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
-    private final RefreshTokenService refreshTokenService;  // ADDED
-    private final EmailService emailService;                // ADDED
+    private final RefreshTokenService refreshTokenService;
+    private final EmailService emailService;
 
+    // ── REGISTER: save user (unverified) + send OTP ──────────────────────────
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already registered");
@@ -38,13 +39,10 @@ public class AuthService {
                 .build();
 
         user = userRepository.save(user);
-        
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole());
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId()); // ADDED
+        sendOtp(user);
 
+        // No JWT yet — user must verify OTP first
         return AuthResponse.builder()
-                .token(token)
-                .refreshToken(refreshToken.getToken())  // ADDED
                 .userId(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
@@ -52,28 +50,70 @@ public class AuthService {
                 .build();
     }
 
-    public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+    // ── VERIFY EMAIL (registration OTP) → returns JWT ────────────────────────
+    public AuthResponse verifyEmail(VerifyEmailRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.isEmailVerified()) {
+            throw new RuntimeException("Email already verified");
+        }
+
+        validateOtp(user, request.getOtp());
+
+        user.setEmailVerified(true);
+        user.setOtp(null);
+        user.setOtpExpiresAt(null);
+        userRepository.save(user);
+
+        return buildAuthResponse(user);
+    }
+
+    // ── LOGIN STEP 1: verify credentials + send OTP ──────────────────────────
+    public void login(LoginRequest request) {
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (BadCredentialsException e) {
+            throw new RuntimeException("Invalid email or password");
+        }
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole());
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId()); // ADDED
+        if (!user.isEmailVerified()) {
+            throw new RuntimeException("Email not verified. Please complete registration first.");
+        }
 
-        return AuthResponse.builder()
-                .token(token)
-                .refreshToken(refreshToken.getToken())  // ADDED
-                .userId(user.getId())
-                .name(user.getName())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
+        // Send fresh OTP for this login session
+        sendOtp(user);
     }
 
-    // NEW METHOD
+    // ── LOGIN STEP 2: verify OTP → returns JWT ───────────────────────────────
+    public AuthResponse verifyLoginOtp(LoginVerifyRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        validateOtp(user, request.getOtp());
+
+        user.setOtp(null);
+        user.setOtpExpiresAt(null);
+        userRepository.save(user);
+
+        return buildAuthResponse(user);
+    }
+
+    // ── RESEND OTP (works for both registration and login) ───────────────────
+    public void sendVerificationOTP(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Allow resend for unverified (registration) or verified (login 2FA)
+        sendOtp(user);
+    }
+
+    // ── REFRESH TOKEN ────────────────────────────────────────────────────────
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         RefreshToken refreshToken = refreshTokenService.findByToken(request.getRefreshToken());
         refreshTokenService.verifyExpiration(refreshToken);
@@ -91,62 +131,53 @@ public class AuthService {
                 .build();
     }
 
-    //  NEW METHOD
+    // ── LOGOUT ───────────────────────────────────────────────────────────────
     public void logout(Long userId) {
         refreshTokenService.deleteByUserId(userId);
     }
 
-    // NEW METHOD
-    public void sendVerificationOTP(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (user.isEmailVerified()) {
-            throw new RuntimeException("Email already verified");
-        }
-
-        String otp = String.format("%06d", new Random().nextInt(999999));
-        
-        user.setOtp(otp);
-        user.setOtpExpiresAt(System.currentTimeMillis() + 600000); // 10 minutes
-        userRepository.save(user);
-
-        emailService.sendOTP(email, otp);
-    }
-
-    //  NEW METHOD
-    public void verifyEmail(VerifyEmailRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (user.isEmailVerified()) {
-            throw new RuntimeException("Email already verified");
-        }
-
-        if (user.getOtp() == null || !user.getOtp().equals(request.getOtp())) {
-            throw new RuntimeException("Invalid OTP");
-        }
-
-        if (System.currentTimeMillis() > user.getOtpExpiresAt()) {
-            throw new RuntimeException("OTP expired");
-        }
-
-        user.setEmailVerified(true);
-        user.setOtp(null);
-        user.setOtpExpiresAt(null);
-        userRepository.save(user);
-    }
-
+    // ── VALIDATE TOKEN ───────────────────────────────────────────────────────
     public TokenValidationResponse validateToken(String token) {
         if (!jwtUtil.validateToken(token)) {
             return TokenValidationResponse.builder().valid(false).build();
         }
-
         return TokenValidationResponse.builder()
                 .valid(true)
                 .userId(jwtUtil.getUserId(token))
                 .email(jwtUtil.getEmail(token))
                 .role(jwtUtil.getRole(token))
+                .build();
+    }
+
+    // ── PRIVATE HELPERS ──────────────────────────────────────────────────────
+
+    private void sendOtp(User user) {
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        user.setOtp(otp);
+        user.setOtpExpiresAt(System.currentTimeMillis() + 600000); // 10 min
+        userRepository.save(user);
+        emailService.sendOTP(user.getEmail(), otp);
+    }
+
+    private void validateOtp(User user, String inputOtp) {
+        if (user.getOtp() == null || !user.getOtp().equals(inputOtp)) {
+            throw new RuntimeException("Invalid OTP. Please check and try again.");
+        }
+        if (System.currentTimeMillis() > user.getOtpExpiresAt()) {
+            throw new RuntimeException("OTP has expired. Please request a new one.");
+        }
+    }
+
+    private AuthResponse buildAuthResponse(User user) {
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
+        return AuthResponse.builder()
+                .token(token)
+                .refreshToken(refreshToken.getToken())
+                .userId(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role(user.getRole())
                 .build();
     }
 }

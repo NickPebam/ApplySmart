@@ -15,14 +15,16 @@ const applicationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'JobDescription',
     },
-    coverLetter: String,
-    followUpEmail: String,
+    coverLetter:    String,
+    followUpEmail:  String,
     status: {
       type: String,
       enum: ['Applied', 'Interview', 'Rejected', 'Accepted'],
       default: 'Applied',
     },
-    followUpDate: Date,
+    followUpDate:   Date,
+    atsScore:       Number,
+    analysisResult: String,   // stores the raw JSON string from Gemini
   },
   { timestamps: true }
 );

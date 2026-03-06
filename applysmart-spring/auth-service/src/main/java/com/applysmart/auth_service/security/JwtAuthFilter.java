@@ -26,12 +26,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
 
-        // Do NOT skip logout
-        return path.startsWith("/api/auth/login")
+        return path.startsWith("/api/auth/login")        // covers /login AND /login-verify
                 || path.startsWith("/api/auth/register")
                 || path.startsWith("/api/auth/refresh")
                 || path.startsWith("/api/auth/send-otp")
                 || path.startsWith("/api/auth/verify-email")
+                || path.startsWith("/api/auth/validate")
                 || path.equals("/health");
     }
 
@@ -44,7 +44,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        // If no JWT, continue (Spring Security will block protected endpoints)
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -55,25 +54,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             if (jwtUtil.validateToken(jwt)) {
                 String email = jwtUtil.getEmail(jwt);
-
-                UserDetails userDetails =
-                        userDetailsService.loadUserByUsername(email);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
+                                userDetails, null, userDetails.getAuthorities()
                         );
-
                 authToken.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request)
+                        new WebAuthenticationDetailsSource().buildDetails(request)
                 );
-
-                SecurityContextHolder
-                        .getContext()
-                        .setAuthentication(authToken);
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         } catch (Exception e) {
             logger.error("JWT authentication failed", e);

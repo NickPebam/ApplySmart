@@ -11,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.Hidden;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,6 +20,7 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
 
+    // ── REGISTER: creates user + sends OTP (no JWT returned yet) ─────────────
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
             @Valid @RequestBody RegisterRequest request
@@ -29,14 +29,39 @@ public class AuthController {
                 .body(authService.register(request));
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(
-            @Valid @RequestBody LoginRequest request
+    // ── VERIFY EMAIL (registration): validates OTP → returns JWT ─────────────
+    @PostMapping("/verify-email")
+    public ResponseEntity<AuthResponse> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest request
     ) {
-        return ResponseEntity.ok(authService.login(request));
+        return ResponseEntity.ok(authService.verifyEmail(request));
     }
 
-    // Refresh Token
+    // ── LOGIN STEP 1: validate credentials + send OTP (no JWT yet) ───────────
+    @PostMapping("/login")
+    public ResponseEntity<String> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        authService.login(request);
+        return ResponseEntity.ok("OTP sent to your email");
+    }
+
+    // ── LOGIN STEP 2: validate OTP → returns JWT ─────────────────────────────
+    @PostMapping("/login-verify")
+    public ResponseEntity<AuthResponse> verifyLoginOtp(
+            @Valid @RequestBody LoginVerifyRequest request
+    ) {
+        return ResponseEntity.ok(authService.verifyLoginOtp(request));
+    }
+
+    // ── RESEND OTP (registration or login) ───────────────────────────────────
+    @PostMapping("/send-otp")
+    public ResponseEntity<String> sendOTP(@RequestParam String email) {
+        authService.sendVerificationOTP(email);
+        return ResponseEntity.ok("OTP sent to email");
+    }
+
+    // ── REFRESH TOKEN ─────────────────────────────────────────────────────────
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refreshToken(
             @Valid @RequestBody RefreshTokenRequest request
@@ -44,42 +69,23 @@ public class AuthController {
         return ResponseEntity.ok(authService.refreshToken(request));
     }
 
-    // FIXED LOGOUT (NO CASTING, JWT SAFE)
+    // ── LOGOUT ────────────────────────────────────────────────────────────────
     @PostMapping("/logout")
-public ResponseEntity<String> logout(
-        @Parameter(hidden = true) Authentication authentication
-) {
-    if (authentication == null || !authentication.isAuthenticated()) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body("Not authenticated");
-    }
-
-    String email = authentication.getName();
-
-    User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
-
-    authService.logout(user.getId());
-
-    return ResponseEntity.ok("Logged out successfully");
-}
-
-    //  Send OTP
-    @PostMapping("/send-otp")
-    public ResponseEntity<String> sendOTP(@RequestParam String email) {
-        authService.sendVerificationOTP(email);
-        return ResponseEntity.ok("OTP sent to email");
-    }
-
-    //  Verify Email
-    @PostMapping("/verify-email")
-    public ResponseEntity<String> verifyEmail(
-            @Valid @RequestBody VerifyEmailRequest request
+    public ResponseEntity<String> logout(
+            @Parameter(hidden = true) Authentication authentication
     ) {
-        authService.verifyEmail(request);
-        return ResponseEntity.ok("Email verified successfully");
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+
+        User user = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        authService.logout(user.getId());
+        return ResponseEntity.ok("Logged out successfully");
     }
 
+    // ── VALIDATE TOKEN ────────────────────────────────────────────────────────
     @PostMapping("/validate")
     public ResponseEntity<TokenValidationResponse> validateToken(
             @RequestHeader("Authorization") String authHeader

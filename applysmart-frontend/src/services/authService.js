@@ -1,63 +1,81 @@
-import api from './api';
+import axios from 'axios';
+
+const SPRING_URL = 'http://localhost:8081/api/auth';
+
+const springApi = axios.create({
+  baseURL: SPRING_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
 
 export const authService = {
-  async register(data) {
-    const response = await api.post('/auth/register', data);
-    this.setAuthData(response.data);
-    return response.data;
+
+  // ── REGISTER STEP 1: create account + auto-sends OTP ─────────────────────
+  register: async (data) => {
+    const response = await springApi.post('/register', data);
+    const result = response.data;
+    // Store temporarily — no JWT yet until email verified
+    localStorage.setItem('temp_user', JSON.stringify(result));
+    return result;
   },
 
-  async login(data) {
-    const response = await api.post('/auth/login', data);
-    this.setAuthData(response.data);
-    return response.data;
+  // ── REGISTER STEP 2: verify OTP → get JWT ────────────────────────────────
+  verifyOtp: async ({ email, otp }) => {
+    const response = await springApi.post('/verify-email', { email, otp });
+    const result = response.data;
+    // Promote to real session
+    localStorage.setItem('token', result.token);
+    if (result.refreshToken) localStorage.setItem('refreshToken', result.refreshToken);
+    localStorage.setItem('user', JSON.stringify(result));
+    localStorage.removeItem('temp_user');
+    return result;
   },
 
-  async logout() {
+  // ── LOGIN STEP 1: verify credentials → OTP sent to email ─────────────────
+  login: async (data) => {
+    await springApi.post('/login', data);
+    // Store email temporarily so step 2 knows who to verify
+    localStorage.setItem('pending_login_email', data.email);
+  },
+
+  // ── LOGIN STEP 2: verify OTP → get JWT ───────────────────────────────────
+  verifyLoginOtp: async ({ email, otp }) => {
+    const response = await springApi.post('/login-verify', { email, otp });
+    const result = response.data;
+    localStorage.setItem('token', result.token);
+    if (result.refreshToken) localStorage.setItem('refreshToken', result.refreshToken);
+    localStorage.setItem('user', JSON.stringify(result));
+    localStorage.removeItem('pending_login_email');
+    return result;
+  },
+
+  // ── RESEND OTP ────────────────────────────────────────────────────────────
+  resendOtp: async (email) => {
+    await springApi.post(`/send-otp?email=${encodeURIComponent(email)}`);
+  },
+
+  // ── LOGOUT ────────────────────────────────────────────────────────────────
+  logout: async () => {
     try {
-      await api.post('/auth/logout');
-    } finally {
-      this.clearAuthData();
-    }
-  },
-
-  async getCurrentUser() {
-    const response = await api.get('/users/me');
-    return response.data;
-  },
-
-  async updateProfile(data) {
-    const response = await api.put('/users/me', data);
-    return response.data;
-  },
-
-  setAuthData(data) {
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('refreshToken', data.refreshToken);
-    localStorage.setItem('user', JSON.stringify({
-      userId: data.userId,
-      name: data.name,
-      email: data.email,
-      role: data.role,
-    }));
-  },
-
-  clearAuthData() {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await springApi.post('/logout', {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch { /* ignore logout errors */ }
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('temp_user');
+    localStorage.removeItem('pending_login_email');
   },
 
-  getUser() {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+  getUser: () => {
+    try { return JSON.parse(localStorage.getItem('user') || 'null'); }
+    catch { return null; }
   },
 
-  getToken() {
-    return localStorage.getItem('token');
-  },
+  getToken: () => localStorage.getItem('token'),
 
-  isAuthenticated() {
-    return !!this.getToken();
-  },
+  getPendingLoginEmail: () => localStorage.getItem('pending_login_email'),
 };
