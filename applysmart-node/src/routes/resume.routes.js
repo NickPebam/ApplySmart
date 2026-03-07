@@ -9,12 +9,13 @@ const router = express.Router();
 // Upload and parse resume
 router.post('/upload', authenticate, upload.single('resume'), async (req, res) => {
   try {
-    const extractedText = await parseResume(req.file.path);
+    // req.file.buffer — file is in memory, no disk path needed
+    const extractedText = await parseResume(req.file.buffer, req.file.originalname);
 
     const resume = new Resume({
       userId: req.user.userId,
       fileName: req.file.originalname,
-      filePath: req.file.path,
+      filePath: `memory/${req.file.originalname}`, // placeholder, not used
       extractedText,
     });
 

@@ -1,25 +1,22 @@
-import fs from 'fs/promises';
 import { createRequire } from 'module';
 import mammoth from 'mammoth';
 
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse'); // WORKS in v1.1.1
+const pdfParse = require('pdf-parse');
 
-export const parseResume = async (filePath) => {
+// Accepts a buffer + original filename instead of a file path
+export const parseResume = async (buffer, originalName) => {
   try {
-    const buffer = await fs.readFile(filePath);
-    const lower = filePath.toLowerCase();
+    const lower = originalName.toLowerCase();
     let text = '';
 
     if (lower.endsWith('.pdf')) {
       const data = await pdfParse(buffer);
       text = data.text;
-    } 
-    else if (lower.endsWith('.docx')) {
+    } else if (lower.endsWith('.docx') || lower.endsWith('.doc')) {
       const result = await mammoth.extractRawText({ buffer });
       text = result.value;
-    } 
-    else {
+    } else {
       throw new Error('Unsupported file format. Upload PDF or DOCX only.');
     }
 
