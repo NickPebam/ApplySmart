@@ -3,6 +3,8 @@ import { io } from 'socket.io-client';
 let socket = null;
 let activeUserId = null;
 
+const SOCKET_URL = import.meta.env.VITE_NODE_URL || 'http://localhost:3001';
+
 export const initSocket = () => {
   if (socket?.connected) return socket;
 
@@ -13,8 +15,8 @@ export const initSocket = () => {
     socket = null;
   }
 
-  socket = io('http://localhost:3001', {
-    transports: ['websocket'],
+  socket = io(SOCKET_URL, {
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
@@ -32,12 +34,10 @@ export const initSocket = () => {
 };
 
 export const subscribeToNotifications = (userId, callback) => {
-  // If already subscribed for this user, skip
   if (activeUserId === userId && socket?.connected) return;
 
   activeUserId = userId;
   const s = initSocket();
-  // Remove any stale listener for this event before adding a fresh one
   s.off(`notification-${userId}`);
   s.on(`notification-${userId}`, callback);
 };

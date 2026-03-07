@@ -23,34 +23,34 @@ export const resumeApi = {
   upload: async (file) => {
     const formData = new FormData();
     formData.append('resume', file);
-    return nodeApi.post('/resume/upload', formData, {
+    return nodeApi.post('/api/resume/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  getAll: () => nodeApi.get('/resume'),
+  getAll: () => nodeApi.get('/api/resume'),
 };
 
 // Job Description API
 export const jdApi = {
-  create: (data) => nodeApi.post('/jd', data),
-  getAll: () => nodeApi.get('/jd'),
+  create: (data) => nodeApi.post('/api/jd', data),
+  getAll: () => nodeApi.get('/api/jd'),
 };
 
 // AI API
 export const aiApi = {
-  analyze: (data) => nodeApi.post('/ai/analyze', data),
-  generateCoverLetter: (data) => nodeApi.post('/ai/cover-letter', data),
-  generateFollowUp: (data) => nodeApi.post('/ai/follow-up', data),
+  analyze: (data) => nodeApi.post('/api/ai/analyze', data),
+  generateCoverLetter: (data) => nodeApi.post('/api/ai/cover-letter', data),
+  generateFollowUp: (data) => nodeApi.post('/api/ai/follow-up', data),
 };
 
 // Application API
 export const applicationApi = {
-  create: (data) => nodeApi.post('/application', data),
-  getAll: () => nodeApi.get('/application'),
-  getOne: (id) => nodeApi.get(`/application/${id}`),
-  updateStatus: (id, status) => nodeApi.patch(`/application/${id}/status`, { status }),
-  delete: (id) => nodeApi.delete(`/application/${id}`),
-  getStats: () => nodeApi.get('/application/stats/summary'),
+  create: (data) => nodeApi.post('/api/application', data),
+  getAll: () => nodeApi.get('/api/application'),
+  getOne: (id) => nodeApi.get(`/api/application/${id}`),
+  updateStatus: (id, status) => nodeApi.patch(`/api/application/${id}/status`, { status }),
+  delete: (id) => nodeApi.delete(`/api/application/${id}`),
+  getStats: () => nodeApi.get('/api/application/stats/summary'),
 };
 
 export default nodeApi;
