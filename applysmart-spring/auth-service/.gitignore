@@ -33,8 +33,7 @@ build/
 .vscode/
 
 ### Secrets and sensitive configs ###
-application.yml
 application-backup.yml
-!application-sample.yml
+application-sample.yml
 *.env
 .env
