@@ -4,68 +4,79 @@ ApplySmart is an AI-powered job application assistant that helps users optimize 
 
 The platform combines AI analysis, resume management, and application tracking to streamline the job search process.
 
-The project is built using a modular service-based architecture combining Spring Boot, Node.js, and React.
+---
+
+# Live Demo
+
+🌐 https://applysmart-ashy.vercel.app
+
+---
+
+# Screenshots
+
+### Dashboard
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Application Tracker with AI Analysis
+![Application Tracker](docs/screenshots/tracker.png)
 
 ---
 
 # Project Structure
 
+```
 applysmart/
-
-applysmart-spring/ → Authentication Service (Spring Boot)
-
-applysmart-node/ → AI + Application Service (Node.js)
-
-applysmart-frontend/ → Frontend Application (React)
-
-docs/ → Architecture & API documentation
+applysmart-spring/    → Authentication Service (Spring Boot)
+applysmart-node/      → AI + Application Service (Node.js)
+applysmart-frontend/  → Frontend Application (React)
+docs/                 → Architecture & API documentation
+```
 
 ---
 
 # Features
 
-AI Resume Analysis
+**AI Resume Analysis**
 Automatically compare resumes with job descriptions and generate ATS-style match scores.
 
-Cover Letter Generator
+**Cover Letter Generator**
 Generate personalized cover letters using AI based on the job description and resume.
 
-Follow-Up Email Generator
+**Follow-Up Email Generator**
 Create professional follow-up emails for job applications.
 
-Application Tracker
-Track job applications, statuses, and follow-up reminders.
+**Application Tracker**
+Track job applications, statuses, and follow-up reminders. View full AI analysis results per application including matched and missing skills.
 
-Smart Notifications
-Receive reminders for scheduled follow-ups.
+**Smart Notifications**
+Receive real-time notifications via Socket.IO.
 
-Secure Authentication
-User authentication with JWT and email verification.
+**Secure Authentication**
+JWT-based authentication with email OTP verification and 2FA on every login.
 
 ---
 
 # Technology Stack
 
-Frontend
-
+**Frontend**
 * React
 * Vite
 * Axios
 * Context API
+* Socket.IO Client
 
-Authentication Service
-
+**Authentication Service**
 * Java 17
 * Spring Boot
 * Spring Security
 * JWT Authentication
 * MySQL
+* Brevo (transactional email API)
 
-AI Application Service
-
+**AI Application Service**
 * Node.js
 * Express
-* MongoDB
+* MongoDB Atlas
 * Gemini AI
 * Socket.IO
 * Node-Cron
@@ -74,66 +85,53 @@ AI Application Service
 
 # Architecture Overview
 
-ApplySmart follows a modular service-based architecture.
-
-1. User authenticates via the Spring Boot authentication service.
-2. Frontend stores the JWT token.
-3. Frontend communicates with the Node.js AI service.
-4. AI service processes resumes and job descriptions.
-5. Gemini AI generates analysis and content.
-6. Real-time updates are delivered using Socket.IO.
-
-Detailed architecture documentation is available in the docs folder.
+1. User registers and verifies email via OTP through the Spring Boot authentication service.
+2. On every login, a fresh OTP is sent and verified before issuing a JWT.
+3. Frontend stores the JWT token.
+4. Frontend communicates with the Node.js AI service using the JWT.
+5. Node.js validates the JWT by calling Spring Boot's /api/auth/validate endpoint.
+6. Resumes are parsed in memory — no disk storage required.
+7. Gemini AI generates analysis, cover letters, and follow-up emails.
+8. Real-time updates are delivered using Socket.IO.
 
 ---
 
 # Deployment
 
-ApplySmart is deployed using cloud platforms with automatic build and deployment.
-
-Frontend
-
-* Hosted on Vercel
-
-Backend Services
-
-* Spring Boot Authentication Service → Railway
-* Node.js AI Service → Railway
-
-Deployment is triggered automatically when code is pushed to the main branch on GitHub.
+| Service | Platform | URL |
+|---|---|---|
+| Frontend | Vercel | https://applysmart-ashy.vercel.app |
+| Spring Boot | Railway | https://applysmart-production-c3b2.up.railway.app |
+| Node.js | Railway | https://applysmart-production.up.railway.app |
+| MySQL | Railway | Managed MySQL plugin |
+| MongoDB | MongoDB Atlas | Free M0 cluster |
+| Email | Brevo | HTTP API, 300 emails/day free |
 
 ---
 
 # Security
 
-* JWT authentication
+* JWT authentication with access and refresh tokens
+* 2FA — OTP required on every login
+* Email verification on registration
+* Unverified accounts auto-deleted after 24 hours
 * Role-based access control
-* Email verification using OTP
-* Environment-based configuration
-* Sensitive values stored in .env files
+* Sensitive values stored in environment variables
 
 ---
 
 # Documentation
 
-Additional documentation can be found in the docs directory.
+Additional documentation can be found in the docs/ directory.
 
-* Architecture documentation
-* Authentication API documentation
-* Project roadmap
-
----
-
-# Contributing
-
-Contributions and suggestions are welcome.
-
-Please read CONTRIBUTING.md for development guidelines and workflow.
+* ARCHITECTURE.md — system design and service overview
+* AUTH_API.md — authentication API reference
+* PROJECT_ROADMAP.md — development progress and planned features
+* CONTRIBUTING.md — development guidelines
 
 ---
 
 # Status
 
-ApplySmart is currently under active development.
-
-New features and improvements are being added continuously.
+ApplySmart is live and deployed in production.
+Active development continues with new features being added.

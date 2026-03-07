@@ -1,105 +1,70 @@
 # ApplySmart – Project Roadmap
 
-This roadmap outlines the development progress and planned improvements for ApplySmart.
-
-The goal is to build a complete AI-powered job application assistant.
-
 ---
 
-# Phase 1 – Authentication Service (Completed)
+# Phase 1 – Authentication Service ✅ Completed
 
-Authentication backend built using Spring Boot.
-
-Features
-
-* User registration
-* Login and logout
-* JWT authentication
-* Refresh token support
-* Email verification with OTP
+* User registration with OTP email verification
+* Login with 2FA — fresh OTP on every login
+* JWT access and refresh token authentication
+* Auto-deletion of unverified accounts after 24 hours
 * Role-based access control
 * Swagger API documentation
 
 Technology
-
-* Java 17
-* Spring Boot
-* Spring Security
-* JWT
-* MySQL
+* Java 17, Spring Boot, Spring Security, JWT, MySQL
 
 ---
 
-# Phase 2 – AI Application Service (Completed)
+# Phase 2 – AI Application Service ✅ Completed
 
-Backend responsible for resume processing and AI analysis.
-
-Features
-
-* Resume upload and parsing
+* Resume upload and parsing (memory-based)
 * Job description management
-* Resume vs job description analysis
+* AI resume vs job description analysis
 * ATS-style match scoring
 * AI-generated cover letters
 * AI-generated follow-up emails
-* Application tracking
-* Real-time notifications
-* Scheduled follow-up reminders
+* Application tracking with analysis history
+* Real-time notifications via Socket.IO
+* Scheduled follow-up reminders via Node-Cron
 
 Technology
-
-* Node.js
-* Express
-* MongoDB
-* Gemini AI
-* Socket.IO
-* Node-Cron
+* Node.js, Express, MongoDB Atlas, Gemini AI, Socket.IO, Node-Cron
 
 ---
 
-# Phase 3 – Frontend Application (In Progress)
+# Phase 3 – Frontend Application ✅ Completed
 
-User interface for interacting with the platform.
-
-Features
-
-* User authentication UI
+* User authentication UI (register, OTP verify, login, 2FA)
 * Resume upload interface
-* AI analysis results page
-* ATS score visualization
-* Job application tracker dashboard
-* AI-generated recommendations
-* Notification system
+* AI analysis results page with ATS score visualization
+* Application tracker with expandable analysis per application
+* Real-time notification system
+* Dashboard with stats and pipeline overview
 
 Technology
-
-* React
-* Vite
-* Axios
-* Context API
+* React, Vite, Axios, Context API, Socket.IO Client
 
 ---
 
-# Phase 4 – Deployment
-
-Preparing the system for production deployment.
-
-Current approach
+# Phase 4 – Deployment ✅ Completed
 
 * Frontend deployed on Vercel
-* Backend services deployed on Railway
+* Spring Boot deployed on Railway with managed MySQL
+* Node.js deployed on Railway connected to MongoDB Atlas
+* Transactional email via Brevo HTTP API
+* Environment-based configuration across all services
+* CORS configured for production origins
+* Automatic deployment on GitHub push
 
-Future improvements
-
-* Production environment configuration
-* Performance monitoring
-* Improved logging and error handling
+Live URLs
+* Frontend: https://applysmart-ashy.vercel.app
+* Spring Boot: https://applysmart-production-c3b2.up.railway.app
+* Node.js: https://applysmart-production.up.railway.app
 
 ---
 
-# Phase 5 – Advanced AI Features
-
-Planned AI improvements.
+# Phase 5 – Advanced AI Features (Planned)
 
 * Resume optimization suggestions
 * Keyword gap analysis
@@ -109,11 +74,7 @@ Planned AI improvements.
 
 ---
 
-# Phase 6 – Platform Enhancements
-
-Long-term improvements to expand ApplySmart.
-
-Potential features
+# Phase 6 – Platform Enhancements (Planned)
 
 * Resume version management
 * Interview preparation assistant
@@ -121,15 +82,11 @@ Potential features
 * Recruiter contact tracking
 * Integration with job platforms
 * Browser extension for job analysis
+* Docker containerization
+* CI/CD pipeline
 
 ---
 
 # Vision
 
-ApplySmart aims to become a complete AI-powered job search assistant that helps users:
-
-* Improve resumes
-* Generate application materials
-* Track job applications
-* Manage follow-ups
-* Increase job offer success rates
+ApplySmart aims to become a complete AI-powered job search assistant that helps users improve resumes, generate application materials, track job applications, manage follow-ups, and increase job offer success rates.
