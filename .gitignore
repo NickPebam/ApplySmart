@@ -28,7 +28,7 @@ build/
 # =====================
 .env
 *.env
-application.yml
+application-sample.yml
 application-backup.yml
 
 # Allow samples
