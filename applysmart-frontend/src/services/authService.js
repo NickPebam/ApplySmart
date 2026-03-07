@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const SPRING_URL = 'http://localhost:8081/api/auth';
+const SPRING_URL = import.meta.env.VITE_SPRING_URL || 'http://localhost:8081/api/auth';
 
 const springApi = axios.create({
   baseURL: SPRING_URL,
