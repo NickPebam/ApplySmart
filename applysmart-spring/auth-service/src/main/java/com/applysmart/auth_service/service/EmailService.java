@@ -1,34 +1,53 @@
 package com.applysmart.auth_service.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
+import java.util.Map;
+import java.util.List;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    @Value("${brevo.api.key}")
+    private String brevoApiKey;
+
+    @Value("${brevo.sender.email}")
+    private String senderEmail;
+
+    @Value("${brevo.sender.name:ApplySmart}")
+    private String senderName;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+    private static final String BREVO_URL = "https://api.brevo.com/v3/smtp/email";
 
     public void sendOTP(String toEmail, String otp) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("api-key", brevoApiKey);
+
+        Map<String, Object> body = Map.of(
+            "sender",      Map.of("name", senderName, "email", senderEmail),
+            "to",          List.of(Map.of("email", toEmail)),
+            "subject",     "ApplySmart – Your Verification Code",
+            "htmlContent", buildOtpHtml(otp)
+        );
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setTo(toEmail);
-            helper.setSubject("ApplySmart – Your Verification Code");
-            helper.setText(buildOtpHtml(otp), true); // true = send as HTML
-
-            mailSender.send(message);
-            log.info("OTP email sent to {}", toEmail);
-
-        } catch (MessagingException e) {
+            ResponseEntity<String> response = restTemplate.postForEntity(BREVO_URL, request, String.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("OTP email sent to {}", toEmail);
+            } else {
+                log.error("Brevo returned {}: {}", response.getStatusCode(), response.getBody());
+                throw new RuntimeException("Failed to send OTP email. Please try again.");
+            }
+        } catch (Exception e) {
             log.error("Failed to send OTP email to {}: {}", toEmail, e.getMessage());
             throw new RuntimeException("Failed to send OTP email. Please try again.");
         }
