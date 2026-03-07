@@ -6,10 +6,12 @@ import com.applysmart.auth_service.entity.User;
 import com.applysmart.auth_service.repository.UserRepository;
 import com.applysmart.auth_service.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.Random;
 
 @Service
@@ -23,10 +25,17 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final EmailService emailService;
 
-    // ── REGISTER: save user (unverified) + send OTP ──────────────────────────
+    // ── REGISTER ──────────────────────────────────────────────────────────────
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+        Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
+
+        if (existingUser.isPresent()) {
+            if (existingUser.get().isEmailVerified()) {
+                throw new RuntimeException("Email already registered");
+            } else {
+                // Unverified — delete stale record and let them retry
+                userRepository.delete(existingUser.get());
+            }
         }
 
         User user = User.builder()
@@ -41,7 +50,6 @@ public class AuthService {
         user = userRepository.save(user);
         sendOtp(user);
 
-        // No JWT yet — user must verify OTP first
         return AuthResponse.builder()
                 .userId(user.getId())
                 .name(user.getName())
@@ -50,7 +58,7 @@ public class AuthService {
                 .build();
     }
 
-    // ── VERIFY EMAIL (registration OTP) → returns JWT ────────────────────────
+    // ── VERIFY EMAIL ──────────────────────────────────────────────────────────
     public AuthResponse verifyEmail(VerifyEmailRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -69,7 +77,7 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
-    // ── LOGIN STEP 1: verify credentials + send OTP ──────────────────────────
+    // ── LOGIN STEP 1 ──────────────────────────────────────────────────────────
     public void login(LoginRequest request) {
         try {
             authenticationManager.authenticate(
@@ -86,11 +94,10 @@ public class AuthService {
             throw new RuntimeException("Email not verified. Please complete registration first.");
         }
 
-        // Send fresh OTP for this login session
         sendOtp(user);
     }
 
-    // ── LOGIN STEP 2: verify OTP → returns JWT ───────────────────────────────
+    // ── LOGIN STEP 2 ──────────────────────────────────────────────────────────
     public AuthResponse verifyLoginOtp(LoginVerifyRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -104,16 +111,14 @@ public class AuthService {
         return buildAuthResponse(user);
     }
 
-    // ── RESEND OTP (works for both registration and login) ───────────────────
+    // ── RESEND OTP ────────────────────────────────────────────────────────────
     public void sendVerificationOTP(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Allow resend for unverified (registration) or verified (login 2FA)
         sendOtp(user);
     }
 
-    // ── REFRESH TOKEN ────────────────────────────────────────────────────────
+    // ── REFRESH TOKEN ─────────────────────────────────────────────────────────
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         RefreshToken refreshToken = refreshTokenService.findByToken(request.getRefreshToken());
         refreshTokenService.verifyExpiration(refreshToken);
@@ -131,12 +136,12 @@ public class AuthService {
                 .build();
     }
 
-    // ── LOGOUT ───────────────────────────────────────────────────────────────
+    // ── LOGOUT ────────────────────────────────────────────────────────────────
     public void logout(Long userId) {
         refreshTokenService.deleteByUserId(userId);
     }
 
-    // ── VALIDATE TOKEN ───────────────────────────────────────────────────────
+    // ── VALIDATE TOKEN ────────────────────────────────────────────────────────
     public TokenValidationResponse validateToken(String token) {
         if (!jwtUtil.validateToken(token)) {
             return TokenValidationResponse.builder().valid(false).build();
@@ -149,12 +154,18 @@ public class AuthService {
                 .build();
     }
 
-    // ── PRIVATE HELPERS ──────────────────────────────────────────────────────
+    // ── CLEANUP: delete unverified users older than 24h ───────────────────────
+    @Scheduled(fixedRate = 86400000)
+    public void deleteUnverifiedUsers() {
+        long cutoff = System.currentTimeMillis() - (24 * 60 * 60 * 1000L);
+        userRepository.deleteByEmailVerifiedFalseAndOtpExpiresAtBefore(cutoff);
+    }
 
+    // ── HELPERS ───────────────────────────────────────────────────────────────
     private void sendOtp(User user) {
         String otp = String.format("%06d", new Random().nextInt(999999));
         user.setOtp(otp);
-        user.setOtpExpiresAt(System.currentTimeMillis() + 600000); // 10 min
+        user.setOtpExpiresAt(System.currentTimeMillis() + 600000);
         userRepository.save(user);
         emailService.sendOTP(user.getEmail(), otp);
     }
